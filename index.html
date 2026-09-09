@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinSim | Multi-Period Financial Statement Simulator</title>
+  <meta name="description" content="เครื่องมือจำลองงบการเงิน Balance Sheet, Cash Flow Statement, และ P&L Statement แบบหลายช่วงเวลา ตั้งแต่งวด X0 เป็นต้นไป">
+  
+  <!-- Google Fonts: Prompt & Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Top Navigation / Header -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="logo-area">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M3 3v18h18" />
+            <path d="m19 9-5 5-4-4-3 3" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="logo-title">FinSim <span>Multi-Period</span></h1>
+          <p class="logo-subtitle">จำลองงบแสดงฐานะการเงิน • งบกำไรขาดทุน • งบกระแสเงินสด สะสมต่อเนื่อง (X0, X1, X2...)</p>
+        </div>
+      </div>
+
+      <!-- View Navigation Switcher: Workspace vs Full Report -->
+      <nav class="nav-view-switcher">
+        <button type="button" class="nav-view-btn active" id="btn-view-workspace">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <line x1="9" y1="3" x2="9" y2="21"/>
+          </svg>
+          ห้องทำงานบันทึกบัญชี (Workspace)
+        </button>
+        <button type="button" class="nav-view-btn" id="btn-view-full-report">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="20" x2="18" y2="10"/>
+            <line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6" y1="20" x2="6" y2="14"/>
+          </svg>
+          หน้างบการเงินรวมทุกงวด (All Periods Report)
+          <span class="badge-count-periods" id="badge-total-periods">4 งวด</span>
+        </button>
+      </nav>
+
+      <div class="header-actions">
+        <!-- Period View Filter -->
+        <div class="header-period-filter">
+          <label for="kpi-period-select">โฟกัสงวด:</label>
+          <select id="kpi-period-select" class="form-control form-control-sm">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+        <button id="btn-reset-all" class="btn btn-outline-danger" title="ล้างข้อมูลทั้งหมด">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          </svg>
+          รีเซ็ตข้อมูล
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+
+    <!-- ========================================================
+         VIEW 1: WORKSPACE (ห้องทำงานบันทึกบัญชี และดูงบ 3 งวด)
+         ======================================================== -->
+    <div id="view-workspace">
+      <!-- Real-time Status KPI Banner -->
+      <section class="kpi-banner">
+        <div class="kpi-card">
+          <div class="kpi-label">สินทรัพย์รวมสะสม (<span class="kpi-focus-period">ปี X0</span>)</div>
+          <div class="kpi-value asset-color" id="kpi-assets">฿0.00</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">หนี้สิน + ทุนสะสม (<span class="kpi-focus-period">ปี X0</span>)</div>
+          <div class="kpi-value equity-color" id="kpi-liab-equity">฿0.00</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">กำไรสุทธิเฉพาะงวด (<span class="kpi-focus-period">ปี X0</span>)</div>
+          <div class="kpi-value profit-color" id="kpi-net-income">฿0.00</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">เงินสดปลายงวดสะสม (<span class="kpi-focus-period">ปี X0</span>)</div>
+          <div class="kpi-value cash-color" id="kpi-cash-balance">฿0.00</div>
+        </div>
+        <div class="kpi-card status-card" id="kpi-status-card">
+          <div class="kpi-label">สถานะงบดุล (<span class="kpi-focus-period">ปี X0</span>)</div>
+          <div class="kpi-badge badge-balanced" id="kpi-balance-badge">
+            <span class="status-dot"></span> สมดุล (Balanced)
+          </div>
+        </div>
+      </section>
+
+      <!-- Preset Quick Scenarios -->
+      <section class="presets-section">
+        <div class="section-title-sm">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+          </svg>
+          จำลองเหตุการณ์สำเร็จรูป (Quick Test Scenarios):
+        </div>
+        <div class="preset-buttons">
+          <button class="preset-btn" data-preset="multi_year_demo">
+            <strong>🚀 รันตัวอย่างจำลอง 3 ปี (X0, X1, X2)</strong> ต้นงวด X0 + ดำเนินงาน X1 + ขยายงาน X2
+          </button>
+          <button class="preset-btn" data-preset="x0_opening">
+            <strong>ปี X0: บันทึกยอดยกมาต้นงวด</strong> เงินสด 50,000 + สินค้าคงเหลือ 20,000 / ทุน 70,000
+          </button>
+          <button class="preset-btn" data-preset="x1_sales">
+            <strong>ปี X1: ขายสินค้าเป็นเงินสด</strong> Dr. Cash 30,000 / Cr. Revenue 30,000
+          </button>
+          <button class="preset-btn" data-preset="x2_sales">
+            <strong>ปี X2: ขายสินค้าเพิ่ม</strong> Dr. Cash 60,000 / Cr. Revenue 60,000
+          </button>
+          <button class="preset-btn" data-preset="x2_equipment">
+            <strong>ปี X2: ซื้ออุปกรณ์สำนักงาน</strong> Dr. Equipment 40,000 / Cr. Cash 40,000
+          </button>
+        </div>
+      </section>
+
+      <!-- 2 Column Layout: Left = Entry Form & History, Right = Comparative Statements -->
+      <div class="workspace-grid">
+        
+        <!-- Left Column: Journal Entry Input & History -->
+        <div class="left-pane">
+          <!-- Input Form Card -->
+          <div class="card form-card" id="form-card-container">
+            <div class="card-header">
+              <div class="card-header-title">
+                <span class="step-badge" id="form-step-badge">1</span>
+                <div>
+                  <h2 id="form-heading-title">บันทึกรายการรายวัน (Journal Entry)</h2>
+                  <p id="form-heading-desc">เลือกลงบัญชีในงวด X0, X1, X2... หรือเพิ่มงวดใหม่ได้ไม่จำกัด</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Edit Mode Alert Banner -->
+            <div class="edit-mode-banner is-hidden" id="edit-mode-banner">
+              <div class="edit-banner-info">
+                <span class="edit-banner-icon">✏️</span>
+                <div>
+                  <strong id="edit-banner-title">กำลังแก้ไขรายการ #1</strong>
+                  <p>ทำการแก้ไขข้อมูลด้านล่าง แล้วกดปุ่ม "บันทึกการแก้ไข"</p>
+                </div>
+              </div>
+              <button type="button" class="btn btn-sm btn-outline-cancel" id="btn-cancel-edit">ยกเลิกการแก้ไข</button>
+            </div>
+
+            <form id="je-form">
+              <!-- Row for Period Selector and Memo -->
+              <div class="form-row-header">
+                <div class="form-group period-group">
+                  <label for="je-period">งวดบัญชี (Period)</label>
+                  <div class="period-input-wrap">
+                    <select id="je-period" class="form-control" required>
+                      <!-- Populated dynamically -->
+                    </select>
+                    <button type="button" id="btn-open-add-period-modal" class="btn btn-sm btn-outline" title="เพิ่มงวดบัญชีใหม่ เช่น ปี X4, ปี X5">+ เพิ่มงวด</button>
+                  </div>
+                </div>
+
+                <div class="form-group memo-group">
+                  <label for="je-memo">คำอธิบายรายการ (Description / Memo)</label>
+                  <input type="text" id="je-memo" class="form-control" placeholder="เช่น บันทึกยอดยกมาต้นงวด, ขายสินค้าเป็นเงินสด..." required>
+                </div>
+              </div>
+
+              <div class="je-table-wrapper">
+                <table class="je-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 85px;">ด้าน</th>
+                      <th>ชื่อบัญชี (Account)</th>
+                      <th style="width: 165px;">ประเภทบัญชี</th>
+                      <th style="width: 145px;">กระแสเงินสด</th>
+                      <th style="width: 125px;">จำนวนเงิน</th>
+                      <th style="width: 32px;"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="je-lines-body">
+                    <!-- Dynamic rows generated by JS -->
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="form-table-footer">
+                <button type="button" id="btn-add-line" class="btn btn-sm btn-outline">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                  เพิ่มขาบัญชี (Add Line)
+                </button>
+
+                <div class="balance-summary">
+                  <div class="summary-item">
+                    <span>รวม Dr:</span>
+                    <strong id="form-total-dr">฿0.00</strong>
+                  </div>
+                  <div class="summary-item">
+                    <span>รวม Cr:</span>
+                    <strong id="form-total-cr">฿0.00</strong>
+                  </div>
+                  <div class="summary-item diff-item" id="form-diff-item">
+                    <span>ผลต่าง:</span>
+                    <strong id="form-diff">฿0.00</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button type="submit" id="btn-post-entry" class="btn btn-primary btn-lg" disabled>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                    <polyline points="7 3 7 8 15 8"></polyline>
+                  </svg>
+                  <span id="btn-submit-label">บันทึกรายการ (Post Journal Entry)</span>
+                </button>
+                <button type="button" id="btn-clear-form" class="btn btn-secondary">ล้างฟอร์ม</button>
+              </div>
+            </form>
+          </div>
+
+          <!-- History: General Journal Entries -->
+          <div class="card history-card">
+            <div class="card-header">
+              <div class="card-header-title">
+                <span class="step-badge">2</span>
+                <div>
+                  <h2>สมุดรายวันทั่วไป (General Journal History)</h2>
+                  <p>คลิก "แก้ไข" เพื่อแก้ตัวเลขรายการย้อนหลังได้ทันที (<span id="history-count">0</span> รายการ)</p>
+                </div>
+              </div>
+            </div>
+            <div class="history-list" id="history-list">
+              <!-- Dynamically rendered -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Comparative 3 Financial Statements (Max 3 periods selected) -->
+        <div class="right-pane">
+          
+          <!-- Period Compare Multi-Selector Filter (Max 3) -->
+          <div class="compare-filter-card">
+            <div class="filter-header">
+              <div class="filter-header-left">
+                <span class="filter-icon">🔍</span>
+                <div>
+                  <h4>เลือกงวดเปรียบเทียบในหน้านี้ (เลือกได้สูงสุด 3 งวด):</h4>
+                  <small id="compare-selection-note">กำลังแสดง <strong id="selected-period-count">3</strong> จาก 3 งวดที่เลือกได้</small>
+                </div>
+              </div>
+              <button type="button" class="btn btn-sm btn-outline-info" id="btn-jump-full-report">
+                ดูงบรวมทุกงวดครบทั้งหมด ➜
+              </button>
+            </div>
+            <!-- Chips for each period -->
+            <div class="period-chips-wrap" id="period-chips-container">
+              <!-- Dynamically rendered chip buttons -->
+            </div>
+          </div>
+
+          <!-- Tab Navigation for Statements -->
+          <div class="statement-tabs-nav">
+            <div class="tabs-header-title">
+              <span class="step-badge active">3</span>
+              <div>
+                <h2>งบการเงินเปรียบเทียบ (<span id="tabs-period-summary">ปี X0, ปี X1, ปี X2</span>)</h2>
+                <small class="text-secondary">งบดุลสะสมต่อเนื่อง • งบกำไรขาดทุนเฉพาะงวด • งบกระแสเงินสดยกยอดข้ามปี</small>
+              </div>
+            </div>
+            <div class="tab-buttons">
+              <button class="tab-btn active" data-tab="tab-all">ดูทั้ง 3 งบพร้อมกัน</button>
+              <button class="tab-btn" data-tab="tab-balance-sheet">1. Balance Sheet</button>
+              <button class="tab-btn" data-tab="tab-income-stmt">2. P&L Statement</button>
+              <button class="tab-btn" data-tab="tab-cash-flow">3. Cash Flow</button>
+            </div>
+          </div>
+
+          <div class="statements-container" id="statements-container">
+
+            <!-- 1. Balance Sheet Card -->
+            <div class="statement-card" id="tab-balance-sheet">
+              <div class="stmt-header bs-header">
+                <div class="stmt-badge">Statement 1</div>
+                <h3>งบแสดงฐานะการเงิน (Balance Sheet – Cumulative)</h3>
+                <div class="stmt-eq">Assets = Liabilities + Equity (สะสมต่อเนื่อง)</div>
+              </div>
+
+              <div class="stmt-body">
+                <div class="table-responsive">
+                  <table class="comparative-table" id="bs-table">
+                    <thead>
+                      <tr id="bs-table-head">
+                        <th>รายการ (Line Items)</th>
+                        <!-- Dynamically add columns for selected Periods -->
+                      </tr>
+                    </thead>
+                    <tbody id="bs-table-body">
+                      <!-- Dynamic rows -->
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Multi-Period Balance Check Bar -->
+                <div class="bs-multi-audit" id="bs-multi-audit">
+                  <!-- Status badges per period -->
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. Income Statement / P&L Card -->
+            <div class="statement-card" id="tab-income-stmt">
+              <div class="stmt-header pl-header">
+                <div class="stmt-badge">Statement 2</div>
+                <h3>งบกำไรขาดทุน (P&L / Income Statement)</h3>
+                <div class="stmt-eq">Net Income = Revenues - Expenses (แยกตามงวด)</div>
+              </div>
+
+              <div class="stmt-body">
+                <div class="table-responsive">
+                  <table class="comparative-table" id="pl-table">
+                    <thead>
+                      <tr id="pl-table-head">
+                        <th>รายการ (Line Items)</th>
+                      </tr>
+                    </thead>
+                    <tbody id="pl-table-body">
+                      <!-- Dynamic rows -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. Cash Flow Statement Card -->
+            <div class="statement-card" id="tab-cash-flow">
+              <div class="stmt-header cf-header">
+                <div class="stmt-badge">Statement 3</div>
+                <h3>งบกระแสเงินสด (Cash Flow Statement)</h3>
+                <div class="stmt-eq">Ending Cash = Beginning Cash + Net CFO + CFI + CFF</div>
+              </div>
+
+              <div class="stmt-body">
+                <div class="table-responsive">
+                  <table class="comparative-table" id="cf-table">
+                    <thead>
+                      <tr id="cf-table-head">
+                        <th>รายการ (Line Items)</th>
+                      </tr>
+                    </thead>
+                    <tbody id="cf-table-body">
+                      <!-- Dynamic rows -->
+                    </tbody>
+                  </table>
+                </div>
+                <div class="cf-reconcile-legend">
+                  <span>💡 <strong>หมายเหตุ:</strong> เงินสดปลายงวดของงวดก่อน จะถูกยกมาเป็นเงินสดต้นงวด (Beginning Cash) ของงวดถัดไป และยอดเงินสดปลายงวดจะตรงกับบัญชีเงินสดในงบดุลของแต่ละงวดเสมอ</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================
+         VIEW 2: FULL REPORT (หน้างบการเงินรวมทุกงวดแบบเต็มจอ)
+         ======================================================== -->
+    <div id="view-full-report" class="is-hidden">
+      <div class="full-report-banner">
+        <div class="full-report-title-area">
+          <h2>📊 รายงานงบการเงินเปรียบเทียบทุกงวด (All Periods Complete Report)</h2>
+          <p>แสดงงบการเงินทั้ง 3 งบ ครบทุกงวดบัญชีที่มีในระบบ (<span id="full-report-period-range">ปี X0 ถึง ปี X3</span>) แบบกว้างเต็มตา</p>
+        </div>
+        <div class="full-report-actions">
+          <button type="button" class="btn btn-outline" onclick="window.print()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 6 2 18 2 18 9"/>
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+              <rect x="6" y="14" width="12" height="8"/>
+            </svg>
+            พิมพ์รายงาน (Print)
+          </button>
+          <button type="button" class="btn btn-primary" id="btn-back-to-workspace">
+            ⬅ กลับไปหน้าบันทึกบัญชี (Workspace)
+          </button>
+        </div>
+      </div>
+
+      <!-- 1. Full Balance Sheet -->
+      <div class="statement-card report-card">
+        <div class="stmt-header bs-header">
+          <div class="stmt-badge">Statement 1</div>
+          <h3>1. งบแสดงฐานะการเงินรวมทุกงวด (Full Balance Sheet – Cumulative)</h3>
+          <div class="stmt-eq">สินทรัพย์ = หนี้สิน + ทุน (สะสมต่อเนื่องตั้งแต่เริ่มต้น)</div>
+        </div>
+        <div class="stmt-body">
+          <div class="table-responsive">
+            <table class="comparative-table" id="full-bs-table">
+              <thead>
+                <tr id="full-bs-table-head">
+                  <th>รายการ (Line Items)</th>
+                </tr>
+              </thead>
+              <tbody id="full-bs-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Full P&L -->
+      <div class="statement-card report-card">
+        <div class="stmt-header pl-header">
+          <div class="stmt-badge">Statement 2</div>
+          <h3>2. งบกำไรขาดทุนรวมทุกงวด (Full P&L / Income Statement)</h3>
+          <div class="stmt-eq">รายได้ - ค่าใช้จ่าย = กำไรสุทธิ (แสดงแยกเฉพาะงวด)</div>
+        </div>
+        <div class="stmt-body">
+          <div class="table-responsive">
+            <table class="comparative-table" id="full-pl-table">
+              <thead>
+                <tr id="full-pl-table-head">
+                  <th>รายการ (Line Items)</th>
+                </tr>
+              </thead>
+              <tbody id="full-pl-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Full Cash Flow -->
+      <div class="statement-card report-card">
+        <div class="stmt-header cf-header">
+          <div class="stmt-badge">Statement 3</div>
+          <h3>3. งบกระแสเงินสดรวมทุกงวด (Full Cash Flow Statement)</h3>
+          <div class="stmt-eq">เงินสดปลายงวด = เงินสดต้นงวด + CFO + CFI + CFF (ยกยอดต่อเนื่อง)</div>
+        </div>
+        <div class="stmt-body">
+          <div class="table-responsive">
+            <table class="comparative-table" id="full-cf-table">
+              <thead>
+                <tr id="full-cf-table-head">
+                  <th>รายการ (Line Items)</th>
+                </tr>
+              </thead>
+              <tbody id="full-cf-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Datalist for Account Name Auto-complete -->
+  <datalist id="account-suggestions">
+    <option value="Cash (เงินสด)">
+    <option value="Bank Account (เงินฝากธนาคาร)">
+    <option value="Accounts Receivable (ลูกหนี้การค้า)">
+    <option value="Inventory (สินค้าคงเหลือ)">
+    <option value="Prepaid Expenses (ค่าใช้จ่ายจ่ายล่วงหน้า)">
+    <option value="Office Equipment (อุปกรณ์สำนักงาน)">
+    <option value="Building & Land (อาคารและที่ดิน)">
+    <option value="Accounts Payable (เจ้าหนี้การค้า)">
+    <option value="Short-term Loan (เงินกู้ระยะสั้น)">
+    <option value="Bank Loan (เงินกู้ยืมธนาคารระยะยาว)">
+    <option value="Common Stock (ทุนเรือนหุ้น)">
+    <option value="Retained Earnings (กำไรสะสม)">
+    <option value="Sales Revenue (รายได้จากการขาย)">
+    <option value="Service Revenue (รายได้ค่าบริการ)">
+    <option value="Cost of Goods Sold (ต้นทุนขาย)">
+    <option value="Salary Expense (เงินเดือนพนักงาน)">
+    <option value="Rent Expense (ค่าเช่าสำนักงาน)">
+    <option value="Utility Expense (ค่าน้ำค่าไฟ)">
+  </datalist>
+
+  <!-- Custom In-App Modal for Adding New Period (Unlimited) -->
+  <div class="modal-backdrop is-hidden" id="modal-add-period">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-icon-primary">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+            <line x1="12" y1="14" x2="12" y2="18"></line>
+            <line x1="10" y1="16" x2="14" y2="16"></line>
+          </svg>
+        </div>
+        <div>
+          <h3>เพิ่มงวดบัญชีใหม่ (Add Period)</h3>
+          <p>ระบุชื่องวดบัญชีที่ต้องการเพิ่ม เช่น ปี X4, ปี X5 หรือ Q1/2026 (เพิ่มได้เรื่อยๆ ไม่จำกัด)</p>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="input-new-period-name">ชื่องวดบัญชีใหม่:</label>
+          <input type="text" id="input-new-period-name" class="form-control" placeholder="เช่น ปี X4" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="btn-cancel-add-period">ยกเลิก</button>
+        <button type="button" class="btn btn-primary" id="btn-confirm-add-period">เพิ่มงวดบัญชี</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Reset Confirmation Modal -->
+  <div class="modal-backdrop is-hidden" id="modal-reset-confirm">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-icon-danger">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </div>
+        <div>
+          <h3>ยืนยันการรีเซ็ตข้อมูลทั้งหมด?</h3>
+          <p>รายการบัญชีทั้งหมดในทุกงวดเวลาจะถูกลบ และรีเซ็ตกลับเป็นค่าเริ่มต้น</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="btn-cancel-modal-reset">ยกเลิก</button>
+        <button type="button" class="btn btn-danger" id="btn-confirm-modal-reset">ยืนยันรีเซ็ตข้อมูล</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
